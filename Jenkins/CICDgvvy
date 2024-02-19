@@ -1,0 +1,49 @@
+pipeline {
+    agent none  
+    stages {
+        stage('compile') {
+            agent { label 'master' }
+	         steps {
+                // step1 
+                echo 'compiling..'
+		            sh script: '/opt/maven/bin/mvn compile'
+           }
+        }
+        stage('unit-test') {
+            agent { label 'slave1' }
+	          steps {
+                // step2
+                echo 'unittest..'
+	               sh script: '/opt/maven/bin/mvn test'
+            }
+	          post {
+               success {
+                   junit 'target/surefire-reports/*.xml'
+               }
+            }			
+        }
+        
+        stage('package/build-war') {
+            agent { label 'slave2' }
+	         steps {
+                // step3
+                echo 'package......'
+		            sh script: '/opt/maven/bin/mvn package'	
+           }		
+        }
+        stage('build & push docker image') {
+	         steps {
+              withDockerRegistry(credentialsId: 'DOCKER_HUB_LOGIN', url: 'https://index.docker.io/v1/') {
+                    sh script: 'cd  $WORKSPACE'
+                    sh script: 'docker build --file Dockerfile --tag docker.io/jovibih/samplejavaapp:$BUILD_NUMBER .'
+                    sh script: 'docker push docker.io/jovibih/samplejavaapp:$BUILD_NUMBER'
+              }	
+           }		
+        }
+        stage('deploy-QA') {
+	         steps {
+                    sh script: 'ansible-playbook --inventory /tmp/inv $WORKSPACE/deploy/deploy-kube.yml --extra-vars "env=qa build=$BUILD_NUMBER"'
+    }
+}
+}
+}
