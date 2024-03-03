@@ -1,16 +1,21 @@
 pipeline {
-    agent none  
+    agent any
+    environment {
+        TOMCAT_HOST = 'localhost'
+        DOCKER_REGISTRY = 'jovibih'
+        DOCKER_IMAGE = 'edurekaproject:$BUILD_NUMBER'
+    }
+    
     stages {
         stage('compile') {
-            agent { label 'master' }
 	         steps {
                 // step1 
                 echo 'compiling..'
+		            git branch: 'master', url: 'https://github.com/jovi-bih/edurekaProject.git'
 		            sh script: '/opt/maven/bin/mvn compile'
            }
         }
         stage('unit-test') {
-            agent { label 'slave1' }
 	          steps {
                 // step2
                 echo 'unittest..'
@@ -24,49 +29,33 @@ pipeline {
         }
         
         stage('package/build-war') {
-            agent { label 'slave2' }
 	         steps {
                 // step3
                 echo 'package......'
 		            sh script: '/opt/maven/bin/mvn package'	
            }		
         }
+        
         stage('build & push docker image') {
 	         steps {
               withDockerRegistry(credentialsId: 'DOCKER_HUB_LOGIN', url: 'https://index.docker.io/v1/') {
                     sh script: 'cd  $WORKSPACE'
-                    sh script: 'docker build --file Dockerfile --tag docker.io/jovibih/edurekaProject:$BUILD_NUMBER .'
-                    sh script: 'docker push docker.io/jovibih/edurekaProject:$BUILD_NUMBER'
-              }	
-           }  		
-        }
-    pipeline {
-    agent any
-
-    environment {
-        TOMCAT_HOST = 'localhost'
-        DOCKER_REGISTRY = 'https://hub.docker.com/repositories/jovibih'
-        DOCKER_IMAGE = 'edurekaproject'
-    }
-
-    stage('stage('Deploy to Tomcat') {
-            steps {
+                    sh script: 'docker build --file Dockerfile --tag docker.io/jovibih/edurekaproject:$BUILD_NUMBER .'
+                    sh script: 'docker push docker.io/jovibih/edurekaproject:$BUILD_NUMBER'
+               }    
+            }
+	    } 
+	 
+        stage('Deploy to Tomcat') {
+             steps {
                 script {
-                    // Define Tomcat variables
-                    def TOMCAT_HOME = '/opt/tomcat'
-                    def TOMCAT_WEBAPPS = "${TOMCAT_HOME}/webapps"
+                    // Pull the Docker image from the registry
+                    sh "docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
 
-                    // Copy the WAR file to the Tomcat webapps directory
-                    sh " sudo cp /var/lib/jenkins/workspace/pipeline1/target/ABCtechnologies-1.0.war ${TOMCAT_WEBAPPS}/"
-
-                    // Restart Tomcat
-                    sh "sudo ${TOMCAT_HOME}/bin/shutdown.sh"
-                    sleep(5) // Wait for Tomcat to shutdown
-                    sh "sudo ${TOMCAT_HOME}/bin/startup.sh"
-                }
+                    // Run the Docker container on Tomcat
+                    sh "docker run -d --name edurekaproject-$BUILD_NUMBER -p 8186:8189 ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
+                }    
             }
         }
     }
 }
-
-
