@@ -1,0 +1,30 @@
+- hosts: "{{ env }}"
+  become: yes
+  tasks:
+    - name: Deploying Application pods...
+      shell: |
+        if [ `kubectl get deployment | grep -v NAME | awk '{print $1}' | grep ABCtechnologies-1.0 | wc -l` -gt 0 ]; then  
+           echo "deleteing previous application deployment"
+           kubectl delete deployment `kubectl get deployment | grep -v NAME | awk '{print $1}' | grep ABCtechnologies-1.0`
+           echo "creating new application deployment"
+           kubectl create deployment ABCtechnologies-1.0 --image=jovibih/edurekaproject:{{ build }}
+        else 
+           echo "Deploying edurekaproject Application"
+           kubectl create deployment ABCtechnologies-1.0 --image=jovibih/edurekaproject:{{ build }}
+        fi
+    - name: deploying service
+      shell: |
+        if [ `kubectl get svc | grep ABCtechnologies-1.0  | awk '{print $1}' | wc -l` -gt 0 ]; then
+           echo "app service found, No actions taken"
+           #kubectl delete svc `kubectl get svc | grep ABCtechnologies-1.0 | awk '{print $1}'`
+        else
+           echo "Creating App Services"
+           kubectl expose deployment ABCtechnologies-1.0 --name ABCtechnologies-1.0 --type NodePort --port 80 --target-port 8080
+        fi
+    - name: increase replicas
+      shell: kubectl scale deploy ABCtechnologies-1.0 --replicas=2
+
+    #- name: deploy app
+    #  shell: kubectl create deployment ABCtechnologies-1.0 --image=jovibih/samplejavaapp:{{ build }}
+    #- name: deploy service
+    #  shell: kubectl expose deployment ABCtechnologies-1.0 --name ABCtechnologies-1.0 --type NodePort --port 80 --target-port 8080
