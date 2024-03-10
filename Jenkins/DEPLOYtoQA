@@ -44,11 +44,11 @@ pipeline {
                     sh script: 'docker push docker.io/jovibih/edurekaproject:$BUILD_NUMBER'
                }    
             }
-	    } 
+	}
 	 
         stage('deploy-QA') {
 	         steps {
-                    sh script: 'ansible-playbook --inventory /etc/ansible $WORKSPACE/deploy/deploy-kube.yml --extra-vars "env=jenkins build=$BUILD_NUMBER"'
+                    sh script: 'ansible-playbook $WORKSPACE/deploy/deploy-kube.yml --extra-vars "env=jenkins build=$BUILD_NUMBER"'
                 }    
             }
         }
