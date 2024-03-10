@@ -1,0 +1,36 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: login
+  labels:
+    app: abctechnologiesapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: abctechnologiesapp
+  template:
+    metadata:
+      labels:
+        app: abctechnologiesapp
+    spec:
+      containers:
+        - name: abctechjavaapp
+          image: jovibih/edurekaproject: {{ build }}
+          ports:
+            - name: http
+              containerPort: 8080
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: login-svc
+spec:
+  type: NodePort
+  selector:
+    app: abctechnologiesapp
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30000
