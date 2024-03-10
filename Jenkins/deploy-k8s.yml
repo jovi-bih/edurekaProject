@@ -1,0 +1,55 @@
+pipeline {
+    agent any
+    environment {
+        TOMCAT_HOST = 'localhost'
+        DOCKER_REGISTRY = 'jovibih'
+        DOCKER_IMAGE = 'edurekaproject:$BUILD_NUMBER'
+    }
+    
+    stages {
+        stage('compile') {
+	         steps {
+                // step1 
+                echo 'compiling..'
+		            git branch: 'master', url: 'https://github.com/jovi-bih/edurekaProject.git'
+		            sh script: '/opt/maven/bin/mvn compile'
+           }
+        }
+        stage('unit-test') {
+	          steps {
+                // step2
+                echo 'unittest..'
+	               sh script: '/opt/maven/bin/mvn test'
+            }
+	          post {
+               success {
+                   junit 'target/surefire-reports/*.xml'
+               }
+            }			
+        }
+        
+        stage('package/build-war') {
+	         steps {
+                // step3
+                echo 'package......'
+		            sh script: '/opt/maven/bin/mvn package'	
+           }		
+        }
+        
+        stage('build & push docker image') {
+	         steps {
+              withDockerRegistry(credentialsId: 'DOCKER_HUB_LOGIN', url: 'https://index.docker.io/v1/') {
+                    sh script: 'cd  $WORKSPACE'
+                    sh script: 'docker build --file Dockerfile --tag docker.io/jovibih/edurekaproject:$BUILD_NUMBER .'
+                    sh script: 'docker push docker.io/jovibih/edurekaproject:$BUILD_NUMBER'
+               }    
+            }
+	}
+	 
+        stage('Deploy to K8s') {
+			steps {
+				sh 'kubectl apply -f deploy/abctechnologiesapp-deploy-k8s.yml'
+                }    
+            }
+        }
+    }
